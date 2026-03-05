@@ -92,7 +92,6 @@ export async function runAgent(
 
   const generationLlm = new ChatOpenAI({
     model: 'gpt-5',
-    temperature: 0,
   });
 
   const generationResponse = await generationLlm.invoke([
