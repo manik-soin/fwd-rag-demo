@@ -82,6 +82,14 @@ export async function chunkDocuments(documents: Document[]): Promise<Document[]>
 export async function ensureSchema(pool: Pool): Promise<void> {
   await pool.query('CREATE EXTENSION IF NOT EXISTS vector');
   await pool.query(`
+    CREATE TABLE IF NOT EXISTS policy_documents (
+      id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+      content TEXT NOT NULL,
+      metadata JSONB NOT NULL DEFAULT '{}',
+      embedding vector(1536)
+    )
+  `);
+  await pool.query(`
     CREATE TABLE IF NOT EXISTS query_cache (
       id SERIAL PRIMARY KEY,
       tenant_id TEXT NOT NULL,
@@ -115,7 +123,7 @@ export async function createVectorStore(pool: Pool): Promise<PGVectorStore> {
     },
   };
 
-  return PGVectorStore.initialize(embeddings, config);
+  return new PGVectorStore(embeddings, config);
 }
 
 export async function ingestDocuments(databaseUrl: string): Promise<{ chunksIngested: number }> {
