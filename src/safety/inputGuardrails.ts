@@ -1,7 +1,7 @@
 import type { GuardrailResult } from '../types/index.js';
 
 const INJECTION_PATTERNS = [
-  /ignore\s+(your|all|previous|prior)\s+(instructions|rules|constraints)/i,
+  /ignore\s+(your|all|previous|prior)\s+(previous\s+)?(instructions|rules|constraints)/i,
   /ignore\s+everything\s+(above|before)/i,
   /you\s+are\s+now\s+(a|an)/i,
   /system\s*prompt/i,
