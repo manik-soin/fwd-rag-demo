@@ -5,8 +5,25 @@
   const sendBtn = document.getElementById('send-btn');
   const tenantSelector = document.getElementById('tenant-selector');
 
+  const themeToggle = document.getElementById('theme-toggle');
+
   let sending = false;
   let welcomeVisible = true;
+
+  // Theme toggle
+  const savedTheme = localStorage.getItem('theme');
+  if (savedTheme === 'light') document.documentElement.setAttribute('data-theme', 'light');
+
+  themeToggle.addEventListener('click', () => {
+    const isLight = document.documentElement.getAttribute('data-theme') === 'light';
+    if (isLight) {
+      document.documentElement.removeAttribute('data-theme');
+      localStorage.setItem('theme', 'dark');
+    } else {
+      document.documentElement.setAttribute('data-theme', 'light');
+      localStorage.setItem('theme', 'light');
+    }
+  });
 
   // Auto-resize textarea
   input.addEventListener('input', () => {
@@ -309,7 +326,7 @@
         case 'retrieval': label = `Retrieved ${evt.results || 0} chunks`; break;
         case 'rerank': label = `Reranked ${evt.before || '?'} \u2192 ${evt.after || '?'}`; break;
         case 'cache_hit': label = `Cache hit (${((evt.similarity || 0) * 100).toFixed(0)}%)`; break;
-        case 'generation': label = `${evt.model || 'gpt-4o'}${evt.tokens ? ' \u00b7 ' + evt.tokens + ' tok' : ''}`; break;
+        case 'generation': label = `${evt.model || 'gpt-5'}${evt.tokens ? ' \u00b7 ' + evt.tokens + ' tok' : ''}`; break;
         case 'guardrail': label = `${evt.check || 'Check'}: ${evt.passed ? 'pass' : 'fail'}`; break;
       }
 

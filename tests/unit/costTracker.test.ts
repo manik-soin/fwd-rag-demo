@@ -14,19 +14,19 @@ describe('Cost Tracker', () => {
   test('tracks multiple model usages', () => {
     const tracker = new CostTracker();
     tracker.record('gpt-4o-mini', 500, 100);
-    tracker.record('gpt-4o', 1000, 200);
+    tracker.record('gpt-5', 1000, 200);
     tracker.record('text-embedding-3-small', 50, 0);
     const summary = tracker.summary();
     expect(summary.totalTokens).toBe(1850);
     expect(summary.breakdown).toHaveLength(3);
   });
 
-  test('gpt-4o costs more than gpt-4o-mini', () => {
+  test('gpt-5 costs more than gpt-4o-mini', () => {
     const miniTracker = new CostTracker();
     miniTracker.record('gpt-4o-mini', 1000, 500);
 
     const fullTracker = new CostTracker();
-    fullTracker.record('gpt-4o', 1000, 500);
+    fullTracker.record('gpt-5', 1000, 500);
 
     expect(fullTracker.summary().totalCost).toBeGreaterThan(
       miniTracker.summary().totalCost

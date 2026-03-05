@@ -20,7 +20,7 @@ export async function getVectorStore(databaseUrl: string): Promise<PGVectorStore
       modelName: 'text-embedding-3-small',
     });
 
-    _vectorStore = await PGVectorStore.initialize(embeddings, {
+    _vectorStore = new PGVectorStore(embeddings, {
       pool,
       tableName: 'policy_documents',
       columns: {

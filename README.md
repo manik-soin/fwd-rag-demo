@@ -45,7 +45,7 @@ Agentic RAG system for insurance policy Q&A with MCP integration, tenant isolati
                           │       └────┬─────┘          │
                           │            └─────────┬──────┘
                           │              ┌───────▼──────────────┐
-                          │              │  GENERATE (gpt-4o)   │
+                          │              │  GENERATE (gpt-5)    │
                           │              │  Grounded + Citations │
                           │              └───────┬──────────────┘
                           │              ┌───────▼──────────────┐
@@ -96,7 +96,7 @@ curl -X POST http://localhost:3000/api/query \
 
 ## Tech Stack
 
-Node.js 20 · TypeScript (strict) · LangChain.js · OpenAI (gpt-4o + gpt-4o-mini) · PostgreSQL + pgvector · Model Context Protocol · Zod · Vitest · Express · Railway · Neon
+Node.js 20 · TypeScript (strict) · LangChain.js · OpenAI (gpt-5 + gpt-4o-mini) · PostgreSQL + pgvector · Model Context Protocol · Zod · Vitest · Express · Railway · Neon
 
 ## Local Development
 
@@ -188,16 +188,16 @@ Reciprocal Rank Fusion (RRF) merges both signals without needing to calibrate sc
 
 **What I'd change in production**: Replace BM25 with a learned sparse encoder (SPLADE) and add a cross-encoder reranker (Cohere Rerank or a fine-tuned model) instead of LLM-based reranking. The LLM reranker costs ~$0.0001/call but adds 200-400ms latency that a cross-encoder model at 20ms would avoid.
 
-### Why Dual-Model (gpt-4o-mini + gpt-4o)?
+### Why Dual-Model (gpt-4o-mini + gpt-5)?
 
 | Role | Model | Latency | Cost/call |
 |------|-------|---------|-----------|
 | Routing + reranking | gpt-4o-mini | ~200ms | ~$0.0001 |
-| Answer generation | gpt-4o | ~1.5s | ~$0.004 |
+| Answer generation | gpt-5 | ~1.5s | ~$0.003 |
 
-The routing decision ("search policies or check claims?") doesn't require gpt-4o's reasoning capability. Using gpt-4o-mini for the agent loop saves ~$0.004/call while adding minimal latency. The final answer generation uses gpt-4o because accuracy and citation quality matter more than speed for customer-facing responses.
+The routing decision ("search policies or check claims?") doesn't require gpt-5's reasoning capability. Using gpt-4o-mini for the agent loop saves ~$0.003/call while adding minimal latency. The final answer generation uses gpt-5 because accuracy and citation quality matter more than speed for customer-facing responses.
 
-**Alternative considered**: Using a single gpt-4o call with function calling for everything. Simpler code, but 3x more expensive per query and slower because the model does routing + generation in one pass. The dual-model pattern also lets you independently tune each prompt.
+**Alternative considered**: Using a single gpt-5 call with function calling for everything. Simpler code, but 3x more expensive per query and slower because the model does routing + generation in one pass. The dual-model pattern also lets you independently tune each prompt.
 
 ### Why Regex-First Injection Detection?
 

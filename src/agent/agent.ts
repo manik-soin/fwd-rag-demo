@@ -83,7 +83,7 @@ export async function runAgent(
     }
   }
 
-  // Step 3: Generate final answer with gpt-4o using tool results as context
+  // Step 3: Generate final answer with gpt-5 using tool results as context
   emit({ type: 'thinking', content: 'Generating grounded answer with citations...' });
 
   const contextBlock = toolResults
@@ -91,7 +91,7 @@ export async function runAgent(
     .join('\n\n');
 
   const generationLlm = new ChatOpenAI({
-    model: 'gpt-4o',
+    model: 'gpt-5',
     temperature: 0,
   });
 
@@ -118,7 +118,7 @@ export async function runAgent(
   if (tokenUsage) {
     emit({
       type: 'generation',
-      model: 'gpt-4o',
+      model: 'gpt-5',
       tokens: (tokenUsage.input_tokens ?? 0) + (tokenUsage.output_tokens ?? 0),
     });
   }
