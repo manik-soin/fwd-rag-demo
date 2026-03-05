@@ -269,12 +269,22 @@ export function createRouter(databaseUrl: string) {
           sendEvent('tool', { name: tool, status: 'completed' });
         }
 
-        // Send safety info
+        // Output guardrails
+        const citationResult = verifyCitations(
+          agentResult.answer,
+          agentResult.citations.map((c) => ({ metadata: { policyId: c.sourceId } }))
+        );
+        const piiLeak = detectPIILeak(agentResult.answer, { tenantId }, []);
+        const confidence = computeConfidence(
+          8, citationResult, agentResult.citations.map((c) => c.relevance)
+        );
+
         sendEvent('safety', {
-          faithfulnessScore: 8.5,
-          confidence: agentResult.confidence,
+          faithfulnessScore: 8,
+          confidence,
           blocked: false,
           piiMasked: piiDetected,
+          phantomCitations: citationResult.phantomCitations,
         });
 
         // Audit
@@ -284,7 +294,7 @@ export function createRouter(databaseUrl: string) {
           query: masked,
           intent,
           retrievedDocumentIds: agentResult.citations.map((c) => c.sourceId),
-          retrievedChunkScores: [],
+          retrievedChunkScores: agentResult.citations.map((c) => c.relevance),
           mcpToolsCalled: agentResult.toolsUsed.map((t) => ({
             tool: t,
             input: {},
@@ -292,13 +302,13 @@ export function createRouter(databaseUrl: string) {
           })),
           response: agentResult.answer,
           citations: agentResult.citations,
-          faithfulnessScore: 8.5,
-          confidenceScore: agentResult.confidence,
+          faithfulnessScore: 8,
+          confidenceScore: confidence,
           guardrailFlags: {
             injectionDetected: false,
             piiMasked: piiDetected,
-            piiLeakDetected: false,
-            escalated: false,
+            piiLeakDetected: piiLeak.leaked,
+            escalated: confidence === 'low',
           },
           latencyMs: Date.now() - startTime,
         });

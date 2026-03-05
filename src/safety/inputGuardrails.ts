@@ -81,7 +81,8 @@ const CLAIM_KEYWORDS = [
 
 const OUT_OF_SCOPE_KEYWORDS = [
   'weather', 'joke', 'recipe', 'movie', 'sport', 'game', 'code', 'program',
-  'stock', 'crypto', 'bitcoin', 'politics', 'news',
+  'stock', 'crypto', 'bitcoin', 'politics', 'news', 'script', 'python',
+  'football', 'soccer', 'basketball',
 ];
 
 export function classifyIntent(input: string): Intent {
