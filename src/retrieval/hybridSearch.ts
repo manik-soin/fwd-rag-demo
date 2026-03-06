@@ -100,8 +100,8 @@ export async function hybridSearch(
 
   // Run vector and keyword searches in parallel
   const [vectorResults, keywordResults] = await Promise.all([
-    tenantScopedSearch(databaseUrl, query, tenantId, 10),
-    keywordSearch(databaseUrl, query, tenantId, 10),
+    tenantScopedSearch(databaseUrl, query, tenantId, 5),
+    keywordSearch(databaseUrl, query, tenantId, 5),
   ]);
 
   // Fuse results with RRF
