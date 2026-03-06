@@ -1,6 +1,8 @@
 import { ChatOpenAI } from '@langchain/openai';
-import { createAgentTools } from './tools.js';
-import { SYSTEM_PROMPT, ROUTING_PROMPT } from './prompts.js';
+import { SYSTEM_PROMPT } from './prompts.js';
+import { hybridSearch } from '../retrieval/hybridSearch.js';
+import { checkClaimStatus, listClaims, getProfile } from '../mcp/server.js';
+import { classifyIntent } from '../safety/inputGuardrails.js';
 import type { QueryResponse, Citation, PipelineEvent } from '../types/index.js';
 
 export interface AgentOptions {
@@ -23,67 +25,56 @@ export async function runAgent(
   }
 
   const { databaseUrl, tenantId } = options;
-  const tools = createAgentTools(databaseUrl, tenantId);
   const toolsUsed: string[] = [];
-
-  // Step 1: Agent decides which tools to call using gpt-4o-mini
-  emit({ type: 'thinking', content: 'Analyzing query to determine tool routing...' });
-
-  const routingLlm = new ChatOpenAI({
-    model: 'gpt-4o-mini',
-    temperature: 0,
-  }).bindTools(tools);
-
-  const routingResponse = await routingLlm.invoke([
-    { role: 'system', content: `${SYSTEM_PROMPT}\n\n${ROUTING_PROMPT}` },
-    { role: 'user', content: query },
-  ]);
-
-  // Step 2: Execute tool calls
   const toolResults: { tool: string; result: string }[] = [];
 
-  if (routingResponse.tool_calls && routingResponse.tool_calls.length > 0) {
-    for (const toolCall of routingResponse.tool_calls) {
-      const matchedTool = tools.find((t) => t.name === toolCall.name);
-      if (matchedTool) {
-        emit({ type: 'tool_call', tool: toolCall.name, args: toolCall.args });
-        toolsUsed.push(toolCall.name);
+  // Step 1: Fast keyword-based routing (μs instead of 1.4s LLM call)
+  const intent = classifyIntent(query);
+  emit({ type: 'thinking', content: `Routed as: ${intent}` });
 
-        // eslint-disable-next-line @typescript-eslint/no-explicit-any
-        const result = await (matchedTool as any).invoke(toolCall.args);
-        const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-        toolResults.push({ tool: toolCall.name, result: resultStr });
+  if (intent === 'claim_inquiry') {
+    // MCP tool path — check if query mentions a specific claim ID
+    const claimIdMatch = query.match(/CLM-[A-Z]-\d+/i);
 
-        if (toolCall.name === 'search_policy_documents') {
-          try {
-            const parsed = JSON.parse(resultStr);
-            emit({ type: 'retrieval', query, results: Array.isArray(parsed) ? parsed.length : 0 });
-          } catch {
-            emit({ type: 'retrieval', query, results: 0 });
-          }
-        }
-      }
+    if (claimIdMatch) {
+      const toolName = 'check_claim_status';
+      emit({ type: 'tool_call', tool: toolName, args: { claimId: claimIdMatch[0] } });
+      toolsUsed.push(toolName);
+      const result = checkClaimStatus(claimIdMatch[0], tenantId);
+      toolResults.push({ tool: toolName, result: JSON.stringify(result) });
+    } else {
+      const toolName = 'list_claims';
+      emit({ type: 'tool_call', tool: toolName, args: {} });
+      toolsUsed.push(toolName);
+      const result = listClaims(tenantId);
+      toolResults.push({ tool: toolName, result: JSON.stringify(result) });
+    }
+
+    // Also fetch profile for context
+    const profile = getProfile(tenantId);
+    if (profile) {
+      toolResults.push({ tool: 'get_customer_profile', result: JSON.stringify(profile) });
     }
   } else {
-    // No tool calls — the model wants to answer directly
-    // Force a RAG search for any policy-related query
+    // RAG path — hybrid search (no reranker LLM, use RRF scores directly)
     emit({ type: 'tool_call', tool: 'search_policy_documents', args: { query } });
     toolsUsed.push('search_policy_documents');
 
-    const ragTool = tools.find((t) => t.name === 'search_policy_documents')!;
-    const result = await ragTool.invoke({ query });
-    const resultStr = typeof result === 'string' ? result : JSON.stringify(result);
-    toolResults.push({ tool: 'search_policy_documents', result: resultStr });
+    const { documents, scores } = await hybridSearch(databaseUrl, query, tenantId, 3);
+    emit({ type: 'retrieval', query, results: documents.length });
 
-    try {
-      const parsed = JSON.parse(resultStr);
-      emit({ type: 'retrieval', query, results: Array.isArray(parsed) ? parsed.length : 0 });
-    } catch {
-      emit({ type: 'retrieval', query, results: 0 });
-    }
+    const results = documents.map((doc, i) => ({
+      content: doc.pageContent,
+      policyId: doc.metadata.policyId,
+      policyType: doc.metadata.policyType,
+      section: doc.metadata.source,
+      relevance: scores[i],
+    }));
+
+    toolResults.push({ tool: 'search_policy_documents', result: JSON.stringify(results) });
   }
 
-  // Step 3: Generate final answer with gpt-4o-mini using tool results as context
+  // Step 2: Generate answer (single LLM call)
   emit({ type: 'thinking', content: 'Generating grounded answer with citations...' });
 
   const contextBlock = toolResults
@@ -123,7 +114,7 @@ export async function runAgent(
     });
   }
 
-  // Step 4: Extract citations from the answer
+  // Step 3: Extract citations
   const citations = extractCitations(answer, toolResults);
 
   return {
@@ -148,7 +139,6 @@ function extractCitations(
     const policyId = match[1];
     const section = match[2];
 
-    // Try to find the quoted text in tool results
     let quote = '';
     for (const tr of toolResults) {
       if (tr.tool === 'search_policy_documents') {
