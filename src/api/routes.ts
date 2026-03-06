@@ -11,7 +11,6 @@ import {
 } from '../safety/outputGuardrails.js';
 import { createAuditEntry } from '../safety/audit.js';
 import { getAuditEntry } from '../safety/audit.js';
-import { getDocumentCount } from '../retrieval/vectorStore.js';
 import type { PipelineEvent } from '../types/index.js';
 
 interface AuthenticatedRequest extends Request {
@@ -21,12 +20,6 @@ interface AuthenticatedRequest extends Request {
 
 export function createRouter(databaseUrl: string) {
   const router = Router();
-
-  // Health check
-  router.get('/health', async (_req: Request, res: Response) => {
-    const count = await getDocumentCount(databaseUrl);
-    res.json({ status: 'ok', vectorStoreConnected: count > 0, documentsIndexed: count });
-  });
 
   // Query endpoint
   router.post(

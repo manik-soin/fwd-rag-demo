@@ -10,41 +10,45 @@ import { ingestDocuments } from './ingestion/ingest.js';
 
 const __dirname = dirname(fileURLToPath(import.meta.url));
 
-async function main() {
-  const config = getConfig();
-  const app = express();
+const app = express();
+const port = parseInt(process.env.PORT || '3000');
 
-  app.use(express.json());
+app.use(express.json());
 
-  // Serve static frontend
-  const publicDir = join(__dirname, 'public');
-  app.use(express.static(publicDir));
+// Health check — no dependencies, always responds immediately
+app.get('/api/health', (_req, res) => {
+  res.json({ status: 'ok' });
+});
 
-  // Also try source public dir in dev mode
-  if (config.NODE_ENV === 'development') {
-    app.use(express.static(join(__dirname, '..', 'src', 'public')));
-  }
+// Serve static frontend
+const publicDir = join(__dirname, 'public');
+app.use(express.static(publicDir));
 
-  // API routes
-  const apiRouter = createRouter(config.DATABASE_URL);
-  app.use('/api', apiRouter);
+app.get('/', (_req, res) => {
+  res.sendFile(join(publicDir, 'index.html'));
+});
 
-  // Serve frontend for all non-API routes
-  app.get('/', (_req, res) => {
-    res.sendFile(join(publicDir, 'index.html'));
-  });
+// Start listening immediately so healthcheck passes
+app.listen(port, '0.0.0.0', () => {
+  console.log(`Server listening on port ${port}`);
 
-  app.listen(config.PORT, () => {
-    console.log(`FWD RAG Demo running on http://localhost:${config.PORT}`);
+  // Set up full application after server is live
+  try {
+    const config = getConfig();
 
-    // Auto-bootstrap: ingest documents after server is listening
+    if (config.NODE_ENV === 'development') {
+      app.use(express.static(join(__dirname, '..', 'src', 'public')));
+    }
+
+    const apiRouter = createRouter(config.DATABASE_URL);
+    app.use('/api', apiRouter);
+
     ingestDocuments(config.DATABASE_URL)
       .then((result) => console.log(`Database ready: ${result.chunksIngested} chunks available`))
       .catch((error) => {
         console.error('Database initialization failed:', error);
-        console.log('RAG features may not work until DB is available.');
       });
-  });
-}
-
-main().catch(console.error);
+  } catch (error) {
+    console.error('Configuration error — API routes not available:', error);
+  }
+});
