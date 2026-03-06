@@ -8,7 +8,7 @@ let _vectorStore: PGVectorStore | null = null;
 
 export function getPool(databaseUrl: string): Pool {
   if (!_pool) {
-    _pool = new Pool({ connectionString: databaseUrl });
+    _pool = new Pool({ connectionString: databaseUrl, connectionTimeoutMillis: 5000 });
   }
   return _pool;
 }

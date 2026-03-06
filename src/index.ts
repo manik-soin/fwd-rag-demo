@@ -34,18 +34,16 @@ async function main() {
     res.sendFile(join(publicDir, 'index.html'));
   });
 
-  // Auto-bootstrap: ingest documents on first start
-  try {
-    console.log('Checking database and ingesting documents if needed...');
-    const result = await ingestDocuments(config.DATABASE_URL);
-    console.log(`Database ready: ${result.chunksIngested} chunks available`);
-  } catch (error) {
-    console.error('Database initialization failed:', error);
-    console.log('Server will start but RAG features may not work until DB is available.');
-  }
-
   app.listen(config.PORT, () => {
     console.log(`FWD RAG Demo running on http://localhost:${config.PORT}`);
+
+    // Auto-bootstrap: ingest documents after server is listening
+    ingestDocuments(config.DATABASE_URL)
+      .then((result) => console.log(`Database ready: ${result.chunksIngested} chunks available`))
+      .catch((error) => {
+        console.error('Database initialization failed:', error);
+        console.log('RAG features may not work until DB is available.');
+      });
   });
 }
 

@@ -5,3 +5,6 @@ dist/
 .DS_Store
 .vscode/
 coverage/
+PROJECT-EXPLAINED.md
+presentation.*
+speaker-notes.md
